@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none; }
+            .page-break { page-break-before: always; }
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Cabeçalho -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Dashboard Financeiro</h1>
+            <p class="text-gray-600">Atualizado em: <span id="dataAtualizacao"></span></p>
+        </div>
+
+        <!-- Resumo por Empresa -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Movimentação por Empresa</h2>
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="empresasChart"></canvas>
+            </div>
+            <div class="overflow-x-auto mt-8">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Entradas</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saídas</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="empresasTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Naturezas de Operação -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-2">Top 10 Naturezas de Operação</h2>
+            <p class="text-sm text-gray-500 mb-4">(excluindo transferências e aportes)</p>
+            <div class="chart-container" style="height: 500px;">
+                <canvas id="naturezasChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div class="mt-6 flex gap-4 no-print">
+            <button onclick="window.print()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Exportar PDF
+            </button>
+            <button onclick="exportarExcel()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Exportar Excel
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const dadosEmpresas = [
+            { empresa: 'ÁGATA', entradas: 1926117.51, saidas: 1875402.33, saldo: 50715.18 },
+            { empresa: 'NORTHSIDE', entradas: 1068772.12, saidas: 1065299.44, saldo: 3472.68 },
+            { empresa: 'BARILOCHE', entradas: 83512.79, saidas: 61724.38, saldo: 21788.41 }
+        ];
+
+        const naturezasOperacao = [
+            { natureza: 'OBRAS DE INFRAESTRUTURA', valor: 515134.07 },
+            { natureza: 'RECEITAS DE VENDA DE IMÓVEIS', valor: 451491.30 },
+            { natureza: 'COMISSÃO/INTERMEDIAÇÃO', valor: 220000.00 },
+            { natureza: 'IPTU / ITR', valor: 209584.91 },
+            { natureza: 'RESULTADO DE PARTIC. SOCIETÁRIAS', valor: 168406.25 },
+            { natureza: 'CUSTO DA ÁREA', valor: 114940.58 },
+            { natureza: 'ASSESSORIA CONTÁBIL', valor: 93717.16 },
+            { natureza: 'FORNECIMENTO DE MATERIAL ELÉTRICO', valor: 82502.20 },
+            { natureza: 'PROJETOS COMPLEMENTARES', valor: 71251.92 },
+            { natureza: 'PROJETOS AMBIENTAIS', valor: 64768.57 }
+        ];
+
+        const formatarMoeda = (valor) => {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(valor);
+        };
+
+        document.getElementById('dataAtualizacao').textContent = new Date().toLocaleDateString('pt-BR');
+
+        // Preencher tabela
+        const tabelaEmpresas = document.getElementById('empresasTable');
+        let totalEntradas = 0, totalSaidas = 0, totalSaldo = 0;
+
+        dadosEmpresas.forEach(empresa => {
+            totalEntradas += empresa.entradas;
+            totalSaidas += empresa.saidas;
+            totalSaldo += empresa.saldo;
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${empresa.empresa}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">${formatarMoeda(empresa.entradas)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">${formatarMoeda(empresa.saidas)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold">${formatarMoeda(empresa.saldo)}</td>
+            `;
+            tabelaEmpresas.appendChild(tr);
+        });
+
+        const trTotal = document.createElement('tr');
+        trTotal.className = 'bg-gray-50 font-bold';
+        trTotal.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm">TOTAL</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">${formatarMoeda(totalEntradas)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">${formatarMoeda(totalSaidas)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right">${formatarMoeda(totalSaldo)}</td>
+        `;
+        tabelaEmpresas.appendChild(trTotal);
+
+        // Gráfico de empresas
+        new Chart(document.getElementById('empresasChart'), {
+            type: 'bar',
+            data: {
+                labels: dadosEmpresas.map(d => d.empresa),
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: dadosEmpresas.map(d => d.entradas),
+                        backgroundColor: 'rgb(74, 222, 128)',
+                        borderColor: 'rgb(34, 197, 94)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Saídas',
+                        data: dadosEmpresas.map(d => d.saidas),
+                        backgroundColor: 'rgb(248, 113, 113)',
+                        borderColor: 'rgb(239, 68, 68)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatarMoeda(value);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return formatarMoeda(context.raw);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de naturezas
+        new Chart(document.getElementById('naturezasChart'), {
+            type: 'bar',
+            data: {
+                labels: naturezasOperacao.map(d => d.natureza),
+                datasets: [{
+                    axis: 'y',
+                    label: 'Total Movimentado',
+                    data: naturezasOperacao.map(d => d.valor),
+                    backgroundColor: 'rgb(59, 130, 246)',
+                    borderColor: 'rgb(37, 99, 235)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                responsive: true,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatarMoeda(value);
+                            }
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return formatarMoeda(context.raw);
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        function exportarExcel() {
+            alert('Função de exportação para Excel será implementada em breve');
+        }
+    </script>
+</body>
+</html>
